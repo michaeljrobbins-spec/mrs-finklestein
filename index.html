@@ -148,6 +148,7 @@
     .chat-col { position: sticky; top: 16px; }
   }
   .left-col { display: grid; gap: 26px; }
+  .left-col, .chat-col { min-width: 0; }
 
   /* Setup card */
   .setup { background-color: var(--paper-yellow); transform: rotate(-.6deg); }
@@ -172,7 +173,7 @@
   label.model { margin-top: 10px; }
   input, select, textarea { color: var(--ink); background: var(--card); border: 2px solid var(--ink-soft); border-radius: 4px; }
   label.name input { font: 1.15rem var(--hand); padding: 4px 10px; width: 160px; }
-  label.model select { font: .95rem var(--plain); padding: 5px 8px; max-width: 100%; }
+  label.model select { font: .95rem var(--plain); padding: 5px 8px; flex: 1 1 220px; min-width: 0; max-width: 100%; }
   .status { margin: 10px 0 0; font-size: 1.1rem; }
   .progress {
     margin-top: 12px; height: 18px; border-radius: 4px; overflow: hidden;
@@ -308,7 +309,7 @@
         <label class="model">Model
           <select id="model-select">
             <option value="small">Qwen2.5 0.5B · smaller · ~0.8 GB</option>
-            <option value="large">Qwen2.5 1.5B · bigger · ~1.8 GB</option>
+            <option value="large">Llama 3.2 1B · bigger · ~1.2 GB (WebGPU)</option>
           </select>
         </label>
         <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
@@ -354,12 +355,8 @@ env.useBrowserCache = true;     // ...and keep a copy in the browser's Cache Sto
 let generator = null;
 const stopper = new InterruptableStoppingCriteria();
 
-// One weight file ("q4": 4-bit weights, 32-bit math) for both backends.
-// We deliberately avoid "q4f16": it does the in-between math in 16-bit floats,
-// and Qwen2.5's large internal values overflow 16-bit range on many GPUs,
-// which turns replies into gibberish. Using the same file for WebGPU and WASM
-// also means falling back to WASM never re-downloads anything.
-const DTYPE = "q4";
+// Each model says which weight file ("dtype") to use on each backend; see
+// MODELS in the page script for why.
 
 async function hasWebGPU() {
   try { return !!(navigator.gpu && await navigator.gpu.requestAdapter()); }
@@ -400,7 +397,7 @@ async function selfTest(persona) {
   return looksHealthy(out[0].generated_text.at(-1).content);
 }
 
-async function load(model, persona) {
+async function load(model, persona, dtypes) {
   const files = {};  // file -> {loaded, total}
   const report = () => {
     let loaded = 0, total = 0;
@@ -412,28 +409,51 @@ async function load(model, persona) {
     else if (p.status === "progress") { files[p.file] = { loaded: p.loaded, total: p.total }; report(); }
     else if (p.status === "done" && files[p.file]) { files[p.file].loaded = files[p.file].total; report(); }
   };
-  const make = (device) => pipeline("text-generation", model, { device, dtype: DTYPE, progress_callback });
+  const make = (device) => pipeline("text-generation", model, { device, dtype: dtypes[device], progress_callback });
+  const gpu = await hasWebGPU();
 
-  if (await hasWebGPU()) {
+  // Models with no WASM option need WebGPU; say so before downloading anything.
+  if (!gpu && !dtypes.wasm) {
+    throw new Error("This bigger model needs WebGPU, which this browser doesn't have. Please pick the smaller model, or try a recent Chrome or Edge.");
+  }
+
+  if (gpu) {
+    let problem = "WebGPU didn't work here";
     try {
       generator = await make("webgpu");
       self.postMessage({ type: "status", text: "Checking that the model works on your graphics card…" });
       if (await selfTest(persona)) {
-        self.postMessage({ type: "ready", device: "webgpu", dtype: DTYPE });
+        self.postMessage({ type: "ready", device: "webgpu", dtype: dtypes.webgpu });
         return;
       }
-      self.postMessage({ type: "status", text: "Your graphics card gave garbled output — switching to WASM (no extra download)…" });
-    } catch (_) {
-      self.postMessage({ type: "status", text: "WebGPU didn't work here — switching to WASM (no extra download)…" });
+      problem = "Your graphics card gave garbled output";
+    } catch (err) {
+      if (!dtypes.wasm) throw err;
     }
     try { await generator?.dispose?.(); } catch (_) {}
     generator = null;
+    if (!dtypes.wasm) throw new Error(problem + " with this model. Please pick the smaller model.");
+    const extra = dtypes.wasm === dtypes.webgpu ? " (no extra download)" : "";
+    self.postMessage({ type: "status", text: `${problem} — switching to WASM${extra}…` });
   }
 
   generator = await make("wasm");
   self.postMessage({ type: "status", text: "Warming up…" });
   if (!(await selfTest(persona))) throw new Error("The model loaded but is producing garbled text on this device.");
-  self.postMessage({ type: "ready", device: "wasm", dtype: DTYPE });
+  self.postMessage({ type: "ready", device: "wasm", dtype: dtypes.wasm });
+}
+
+// ONNX Runtime reports crashes inside its WebAssembly code as a bare number
+// (a memory address), which almost always means it ran out of memory.
+function friendlyError(err) {
+  const msg = String((err && err.message) || err).trim();
+  if (typeof err === "number" || /^\d+$/.test(msg)) {
+    return `Your browser ran out of memory while starting this model (code ${msg}). Please pick the smaller model, close other tabs, and try again.`;
+  }
+  if (/out of memory|bad_alloc|allocation failed|Array buffer allocation/i.test(msg)) {
+    return "Your browser ran out of memory while starting this model. Please pick the smaller model, close other tabs, and try again.";
+  }
+  return msg;
 }
 
 async function generate(messages, opts) {
@@ -468,11 +488,11 @@ async function generate(messages, opts) {
 
 self.onmessage = async ({ data }) => {
   try {
-    if (data.type === "load") await load(data.model, data.persona);
+    if (data.type === "load") await load(data.model, data.persona, data.dtypes);
     else if (data.type === "generate") await generate(data.messages, data.opts);
     else if (data.type === "stop") stopper.interrupt();
   } catch (err) {
-    self.postMessage({ type: "error", text: String(err && err.message || err) });
+    self.postMessage({ type: "error", text: friendlyError(err) });
   }
 };
 </script>
@@ -482,9 +502,22 @@ self.onmessage = async ({ data }) => {
 // Two sizes of the same model family so visitors can compare. Both use the
 // same prompt, settings and reply shaping; only the model changes.
 // Sizes are approximate; the page shows the exact total while downloading.
+//
+// small: Qwen2.5-0.5B uses "q4" (4-bit weights, 32-bit math) on both backends.
+//   Its 16-bit version ("q4f16") overflows and produces gibberish on many GPUs.
+//   One file for both backends also means a WASM fallback never re-downloads.
+//
+// large: Llama-3.2-1B uses "q4f16" (4-bit weights, 16-bit math) on WebGPU only.
+//   We tried Qwen2.5-1.5B first, but its "q4" file is ~1.8 GB and ONNX Runtime
+//   needs roughly twice that in browser memory while starting up, which is more
+//   than the browser's 4 GB limit. Llama's file is about a third smaller, and
+//   Llama handles 16-bit math without the overflow problem. It's far too slow
+//   on CPU, so there is no WASM fallback for it.
 const MODELS = {
-  small: { id: "onnx-community/Qwen2.5-0.5B-Instruct", name: "Qwen2.5-0.5B-Instruct", size: "about 0.8 GB" },
-  large: { id: "onnx-community/Qwen2.5-1.5B-Instruct", name: "Qwen2.5-1.5B-Instruct", size: "about 1.8 GB" },
+  small: { id: "onnx-community/Qwen2.5-0.5B-Instruct", name: "Qwen2.5-0.5B-Instruct",
+           size: "about 0.8 GB", dtypes: { webgpu: "q4", wasm: "q4" } },
+  large: { id: "onnx-community/Llama-3.2-1B-Instruct-q4f16", name: "Llama-3.2-1B-Instruct",
+           size: "about 1.2 GB", dtypes: { webgpu: "q4f16", wasm: null } },
 };
 let modelKey = "small";
 
@@ -604,6 +637,16 @@ function onWorkerMessage({ data }) {
 }
 startWorker();
 
+// Free the space used by the retired Qwen2.5-1.5B download (~1.8 GB), if any.
+(async () => {
+  try {
+    const cache = await caches.open("transformers-cache");
+    for (const req of await cache.keys()) {
+      if (req.url.includes("Qwen2.5-1.5B-Instruct")) await cache.delete(req);
+    }
+  } catch (_) {}
+})();
+
 // ---- Model picker -----------------------------------------------------------
 const modelSelect = $("model-select");
 try { if (MODELS[localStorage.getItem("finklestein-model")]) modelKey = localStorage.getItem("finklestein-model"); } catch (_) {}
@@ -640,7 +683,7 @@ loadBtn.addEventListener("click", () => {
   bar.style.display = "block"; barText.style.display = "block";
   barText.textContent = "Starting download…";
   statusEl.textContent = "Downloading the model (only needed once)…";
-  worker.postMessage({ type: "load", model: MODELS[modelKey].id, persona: PERSONA });
+  worker.postMessage({ type: "load", model: MODELS[modelKey].id, persona: PERSONA, dtypes: MODELS[modelKey].dtypes });
 });
 
 // ---- Classroom decorations -----------------------------------------------
