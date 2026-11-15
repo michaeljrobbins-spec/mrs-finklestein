@@ -114,6 +114,12 @@
     transition: width .2s ease;
   }
   .progress-text { font-size: .85rem; color: var(--ink-soft); margin-top: 6px; display: none; }
+  label.model select {
+    font: inherit; color: var(--ink); background: var(--bg);
+    border: 1.5px solid var(--paper-line); border-radius: 8px; padding: 6px 8px; max-width: 100%;
+  }
+  label.model { font-size: .95rem; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .switch-note { text-align: center; color: var(--ink-soft); font-size: .85rem; margin: 4px 0 14px; font-style: italic; }
   label.name { font-size: .95rem; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
   label.name input {
     font: inherit; color: var(--ink); background: var(--bg);
@@ -198,6 +204,12 @@
         <input id="name" type="text" maxlength="40" autocomplete="given-name" placeholder="e.g. Maya">
       </label>
     </div>
+    <label class="model">Model
+      <select id="model-select">
+        <option value="small">Qwen2.5 0.5B · smaller · ~0.8 GB</option>
+        <option value="large">Qwen2.5 1.5B · bigger · ~1.8 GB</option>
+      </select>
+    </label>
     <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
     <div class="progress-text" id="progress-text"></div>
     <p class="status" id="status" aria-live="polite" style="margin:10px 0 0">Model not loaded yet.</p>
@@ -351,10 +363,14 @@ self.onmessage = async ({ data }) => {
 
 <script type="module">
 // ---- Model choice ---------------------------------------------------------
-// Qwen2.5-0.5B-Instruct is the smallest model that reliably stays in
-// character with a long persona prompt. For a lighter (but weaker) option,
-// try "HuggingFaceTB/SmolLM2-360M-Instruct".
-const MODEL = "onnx-community/Qwen2.5-0.5B-Instruct";
+// Two sizes of the same model family so visitors can compare. Both use the
+// same prompt, settings and reply shaping; only the model changes.
+// Sizes are approximate; the page shows the exact total while downloading.
+const MODELS = {
+  small: { id: "onnx-community/Qwen2.5-0.5B-Instruct", name: "Qwen2.5-0.5B-Instruct", size: "about 0.8 GB" },
+  large: { id: "onnx-community/Qwen2.5-1.5B-Instruct", name: "Qwen2.5-1.5B-Instruct", size: "about 1.8 GB" },
+};
+let modelKey = "small";
 
 // ---- Context budget -------------------------------------------------------
 // Small models have small, easily-confused context windows. We send the
@@ -411,7 +427,12 @@ nameEl.addEventListener("change", () => {
 
 // ---- Worker ---------------------------------------------------------------
 const workerUrl = URL.createObjectURL(new Blob([$("worker-src").textContent], { type: "text/javascript" }));
-const worker = new Worker(workerUrl, { type: "module" });
+let worker = null;
+function startWorker() {
+  worker?.terminate();
+  worker = new Worker(workerUrl, { type: "module" });
+  worker.onmessage = onWorkerMessage;
+}
 
 let history = [];        // {role, content} pairs, trimmed before each request
 let busy = false;
@@ -421,7 +442,7 @@ let stopSent = false;
 
 const fmtMB = (b) => (b / 1e6).toFixed(0) + " MB";
 
-worker.onmessage = ({ data }) => {
+function onWorkerMessage({ data }) {
   switch (data.type) {
     case "progress": {
       if (!data.total) break;
@@ -437,7 +458,8 @@ worker.onmessage = ({ data }) => {
       bar.style.display = "none"; barText.style.display = "none";
       const label = data.device === "webgpu" ? "WebGPU (fast)" : "WASM (CPU — a bit slower)";
       statusEl.textContent = `Ready! Running on your device using ${label}.`;
-      backendEl.textContent = `backend: ${data.device} · ${data.dtype}`;
+      backendEl.textContent = `${MODELS[modelKey].name} · backend: ${data.device} · ${data.dtype}`;
+      modelSelect.disabled = false;
       loadBtn.textContent = "Model loaded ✓";
       input.disabled = false; sendBtn.disabled = false;
       input.placeholder = "Type a message to Mrs. Finklestein…";
@@ -459,20 +481,49 @@ worker.onmessage = ({ data }) => {
     case "error":
       statusEl.textContent = "Oops: " + data.text;
       if (busy) finishReply(rawReply);
-      else { loadBtn.disabled = false; loadBtn.textContent = "Try again"; }
+      else { loadBtn.disabled = false; loadBtn.textContent = "Try again"; modelSelect.disabled = false; }
       break;
   }
-};
+}
+startWorker();
+
+// ---- Model picker -----------------------------------------------------------
+const modelSelect = $("model-select");
+try { if (MODELS[localStorage.getItem("finklestein-model")]) modelKey = localStorage.getItem("finklestein-model"); } catch (_) {}
+modelSelect.value = modelKey;
+$("size-hint").textContent = MODELS[modelKey].size;
+
+modelSelect.addEventListener("change", () => {
+  const wasLoaded = !input.disabled;
+  modelKey = modelSelect.value;
+  try { localStorage.setItem("finklestein-model", modelKey); } catch (_) {}
+  $("size-hint").textContent = MODELS[modelKey].size;
+  // Fresh worker so the old model's memory is released.
+  startWorker();
+  busy = false; liveBubble = null; history = [];   // each model starts with a clean memory
+  input.disabled = true; sendBtn.disabled = true; stopBtn.hidden = true;
+  input.placeholder = "Download the model to start chatting…";
+  loadBtn.disabled = false; loadBtn.textContent = "Download model";
+  backendEl.textContent = "backend: not loaded";
+  statusEl.textContent = `Switched to ${MODELS[modelKey].name}. Click "Download model" to load it (models you've loaded before come from your device's cache).`;
+  if (wasLoaded && messagesEl.childElementCount) {
+    const note = document.createElement("p");
+    note.className = "switch-note";
+    note.textContent = `Switched to ${MODELS[modelKey].name}. Mrs. Finklestein starts fresh from here.`;
+    messagesEl.append(note); scrollDown();
+  }
+});
 
 loadBtn.addEventListener("click", () => {
   loadBtn.disabled = true;
+  modelSelect.disabled = true;   // re-enabled once loaded (or on error)
   // Ask the browser to keep the cached model instead of evicting it under storage pressure.
   try { navigator.storage?.persist?.(); } catch (_) {}
   loadBtn.textContent = "Downloading…";
   bar.style.display = "block"; barText.style.display = "block";
   barText.textContent = "Starting download…";
   statusEl.textContent = "Downloading the model (only needed once)…";
-  worker.postMessage({ type: "load", model: MODEL, persona: PERSONA });
+  worker.postMessage({ type: "load", model: MODELS[modelKey].id, persona: PERSONA });
 });
 
 // ---- Chat -----------------------------------------------------------------
@@ -497,7 +548,7 @@ function addMessage(role, text) {
 const scrollDown = () => { messagesEl.scrollTop = messagesEl.scrollHeight; };
 
 function greet() {
-  if (messagesEl.childElementCount) return;
+  if (messagesEl.lastElementChild?.classList.contains("teacher")) return;
   const name = nameEl.value.trim();
   addMessage("assistant",
     `Hello${name ? ", " + name : ""}! Come on in and have a seat. ` +
