@@ -327,8 +327,9 @@ async function generate(messages, opts) {
   const out = await generator(messages, {
     max_new_tokens: opts.max_new_tokens,
     do_sample: true,
-    temperature: 0.7,
-    top_p: 0.9,
+    temperature: 0.3,   // low randomness keeps her on topic
+    top_p: 0.8,
+    top_k: 40,
     repetition_penalty: 1.1,
     streamer,
     stopping_criteria: stopper,
@@ -358,27 +359,36 @@ const MODEL = "onnx-community/Qwen2.5-0.5B-Instruct";
 // ---- Context budget -------------------------------------------------------
 // Small models have small, easily-confused context windows. We send the
 // system prompt + only the most recent turns, and cap reply length.
-const MAX_HISTORY_MESSAGES = 6;     // 3 back-and-forth exchanges
+const MAX_HISTORY_MESSAGES = 4;     // 2 back-and-forth exchanges keeps her on topic
 const MAX_HISTORY_CHARS   = 2400;   // hard cap on remembered text (~600 tokens)
 const MAX_INPUT_CHARS     = 600;
-const MAX_NEW_TOKENS      = 220;
+const MAX_NEW_TOKENS      = 160;    // room for 4 sentences; we stop early once she's said them
+const MAX_SENTENCES       = 4;
+
+// Added to the newest message only (not stored), so the rules are fresh in
+// the model's mind right where it starts writing.
+const REMINDER = "\n\n(Reply as Mrs. Finklestein in 2 to 4 short, plain sentences. No lists or headings. Answer only this message.)";
 
 const PERSONA = `You are Mrs. Finklestein, a kind-hearted, patient 5th-grade teacher who has spent years helping kids believe in themselves.
 
-How you talk:
-- Speak gently, using simple, easy-to-follow words and short sentences.
-- Use the listener's name when you know it.
-- You often say things like "Let's think about that together" or "I can see you've got real potential."
-- Keep replies short: usually 3 to 6 sentences.
+STRICT RULES FOR EVERY REPLY:
+- Write only 2 to 4 short, plain sentences. Always finish your last sentence.
+- No lists, no numbers in a row, no headings, no bold text. Just talk, like a teacher speaking out loud.
+- Use simple words a 10-year-old knows. No big science or medical words.
+- Answer only what the person just asked. Do not change the subject or tell stories.
+- Never mention a study, research, or statistics unless you can name exactly where it came from. If you aren't sure, don't mention it.
 
-When someone shares a problem:
-1. Listen first, and reflect back what you heard in your own words.
-2. Offer one or two small, practical suggestions. Never lecture.
+How you talk: gently and warmly. Use the person's name when you know it. You often say things like "Let's think about that together" or "I can see you've got real potential."
 
-What you know: 5th-grade curriculum only — basic grammar and parts of speech; math through long division and simple fractions; American history and basic social studies; earth and space science like cloud types, the water cycle, and the planets.
-If asked about anything beyond that, cheerfully admit it's outside your lesson plans and suggest where to look (a librarian, a parent, a doctor, or another trusted expert).
+When someone shares a problem, first say back what you heard in one sentence. Then give one or two small, practical ideas. Never lecture.
 
-Always end with an encouraging note about the future. Your goal is to make the person feel the future is bright and full of hope.`;
+What you know: 5th-grade lessons only. That means grammar and parts of speech, math through long division and simple fractions, American history and basic social studies, and earth and space science like clouds, the water cycle, and the planets. If asked about something else, cheerfully say it's outside your lesson plans and suggest who could help, like a librarian, a doctor, or a parent.
+
+End with one short, hopeful sentence about the future.
+
+Example of a good reply:
+Person: I keep getting long division wrong and I feel dumb.
+Mrs. Finklestein: It sounds like long division has been frustrating you, and that's okay. Let's think about that together: try saying "divide, multiply, subtract, bring down" out loud for each step. I can see you've got real potential, and with practice this will feel easy before you know it.`;
 
 // ---- Elements -------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
@@ -406,6 +416,8 @@ const worker = new Worker(workerUrl, { type: "module" });
 let history = [];        // {role, content} pairs, trimmed before each request
 let busy = false;
 let liveBubble = null;
+let rawReply = "";       // unshaped text streamed from the model for the current reply
+let stopSent = false;
 
 const fmtMB = (b) => (b / 1e6).toFixed(0) + " MB";
 
@@ -433,13 +445,20 @@ worker.onmessage = ({ data }) => {
       input.focus();
       break;
     }
-    case "token":
-      if (liveBubble) { liveBubble.textContent += data.text; scrollDown(); }
+    case "token": {
+      if (!liveBubble) break;
+      rawReply += data.text;
+      const { text, count } = shapeReply(rawReply, false);
+      liveBubble.textContent = text;
+      scrollDown();
+      // She's said enough: stop generating so she doesn't ramble.
+      if (count >= MAX_SENTENCES && !stopSent) { stopSent = true; worker.postMessage({ type: "stop" }); }
       break;
+    }
     case "done": finishReply(data.garbled ? "" : data.text, data.garbled); break;
     case "error":
       statusEl.textContent = "Oops: " + data.text;
-      if (busy) finishReply(liveBubble?.textContent || "");
+      if (busy) finishReply(rawReply);
       else { loadBtn.disabled = false; loadBtn.textContent = "Try again"; }
       break;
   }
@@ -501,6 +520,56 @@ function trimmedHistory() {
   return h;
 }
 
+function withReminder(messages) {
+  const last = messages.at(-1);
+  return [...messages.slice(0, -1), { ...last, content: last.content + REMINDER }];
+}
+
+// ---- Reply shaping --------------------------------------------------------
+// The prompt asks for short, plain replies; this enforces it if the small
+// model slips: strips markdown, drops unsourced "studies show" claims, keeps
+// at most MAX_SENTENCES sentences, and cuts any unfinished last sentence.
+const ABBREV = /\b(Mrs|Mr|Ms|Dr|St|Jr|Sr|vs|etc|e\.g|i\.e)\./g;
+const UNSOURCED = /\b(a (recent|new) study|stud(y|ies) (show|shows|showed|found|suggests?|says?)|research (shows|showed|has shown|suggests|says|found)|researchers (found|say|have found)|scientists (say|found|have found)|according to (experts|research|studies))\b/i;
+
+function plainText(raw) {
+  return raw
+    .split("\n")
+    .filter(line => !/^\s*#{1,6}\s/.test(line))                 // drop headings
+    .map(line => line
+      .replace(/^\s*(?:[-*\u2022]|\d+[.)])\s+/, "")           // list markers
+      .replace(/\*\*|__|`/g, "")                               // bold / code
+      .replace(/^\s*\*(?!\s)|(?<=\S)\*(?=\s|$)/g, "")           // stray italics
+      .trim())
+    .filter(Boolean)
+    // Earlier lines (list items) become sentences; the last line is left as-is
+    // so an unfinished sentence can be trimmed instead of "finished" with a period.
+    .map((line, i, all) => i === all.length - 1 || /[.!?:]["')\]]?$/.test(line) ? line : line + ".")
+    .join(" ")
+    .replace(/:\./g, ":")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sentences(text) {
+  const masked = text.replace(ABBREV, (m) => m.slice(0, -1) + "\u0000");
+  const parts = masked.match(/[^.!?]*[.!?]+["')\]]*(?=\s|$)/g) || [];
+  const done = parts.join("");
+  return {
+    complete: parts.map(s => s.replace(/\u0000/g, ".").trim()).filter(Boolean),
+    rest: masked.slice(done.length).replace(/\u0000/g, ".").trim(),
+  };
+}
+
+function shapeReply(raw, final) {
+  const { complete, rest } = sentences(plainText(raw));
+  const kept = complete.filter(s => !UNSOURCED.test(s)).slice(0, MAX_SENTENCES);
+  const count = kept.length;
+  if (final && !count && rest) return { text: rest.replace(/[,;:\s]+$/, "") + ".", count: 1 };
+  if (!final && count < MAX_SENTENCES && rest) kept.push(rest);   // still typing
+  return { text: kept.join(" "), count };
+}
+
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const text = input.value.trim().slice(0, MAX_INPUT_CHARS);
@@ -512,19 +581,20 @@ form.addEventListener("submit", (e) => {
 
   busy = true;
   sendBtn.disabled = true; input.disabled = true; stopBtn.hidden = false;
+  rawReply = ""; stopSent = false;
   liveBubble = addMessage("assistant", "");
   liveBubble.classList.add("typing");
 
   worker.postMessage({
     type: "generate",
-    messages: [{ role: "system", content: systemPrompt() }, ...trimmedHistory()],
+    messages: withReminder([{ role: "system", content: systemPrompt() }, ...trimmedHistory()]),
     opts: { max_new_tokens: MAX_NEW_TOKENS },
   });
 });
 
 function finishReply(text, garbled = false) {
   const fallback = "Oh dear, my words got all jumbled up just now! Could you ask me that one more time?";
-  const reply = (text || "").trim() || fallback;
+  const reply = shapeReply(text || "", true).text || fallback;
   if (liveBubble) { liveBubble.textContent = reply; liveBubble.classList.remove("typing"); }
   // Never feed garbled output back into the model's memory.
   if (garbled || reply === fallback) history.pop();
