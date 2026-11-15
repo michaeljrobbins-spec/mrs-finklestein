@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mrs. Finklestein's Classroom</title>
 <meta name="description" content="Chat with Mrs. Finklestein, a kind 5th-grade teacher, powered by a small language model running entirely in your browser.">
+<meta name="theme-color" content="#2f4a3a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Mrs. Finklestein's Classroom">
+<meta property="og:description" content="A kind 5th-grade teacher you can chat with. The AI runs entirely on your device.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%8E%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://huggingface.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
@@ -332,6 +339,12 @@ const loadBtn = $("load-btn"), statusEl = $("status"), bar = $("progress"),
       sendBtn = $("send-btn"), stopBtn = $("stop-btn"), nameEl = $("name"),
       backendEl = $("backend");
 
+// Opening the file straight from disk (file://) blocks the module worker.
+if (location.protocol === "file:") {
+  statusEl.textContent = "Please open this page from a web server (for example GitHub Pages or python3 -m http.server), not straight from your files.";
+  loadBtn.disabled = true;
+}
+
 try { nameEl.value = localStorage.getItem("finklestein-name") || ""; } catch (_) {}
 nameEl.addEventListener("change", () => {
   try { localStorage.setItem("finklestein-name", nameEl.value.trim()); } catch (_) {}
@@ -385,6 +398,8 @@ worker.onmessage = ({ data }) => {
 
 loadBtn.addEventListener("click", () => {
   loadBtn.disabled = true;
+  // Ask the browser to keep the cached model instead of evicting it under storage pressure.
+  try { navigator.storage?.persist?.(); } catch (_) {}
   loadBtn.textContent = "Downloading…";
   bar.style.display = "block"; barText.style.display = "block";
   barText.textContent = "Starting download…";
