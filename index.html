@@ -189,7 +189,7 @@
     <h2 id="setup-h" style="position:absolute;left:-9999px">Set up</h2>
     <p class="note">
       <strong>How this works:</strong> the first time you visit, your browser downloads a small AI model
-      (<span id="size-hint">about 0.5&nbsp;GB</span>). It's saved on your device, so later visits start right away.
+      (<span id="size-hint">about 0.8&nbsp;GB</span>). It's saved on your device, so later visits start right away.
       After that, everything runs <strong>entirely on your device</strong> — nothing you type is sent to any server.
     </p>
     <div class="row">
@@ -226,20 +226,53 @@ env.useBrowserCache = true;     // ...and keep a copy in the browser's Cache Sto
 let generator = null;
 const stopper = new InterruptableStoppingCriteria();
 
-async function pickDevice() {
-  // Prefer WebGPU; use 16-bit weights only if the GPU supports shader-f16.
-  try {
-    if (navigator.gpu) {
-      const adapter = await navigator.gpu.requestAdapter();
-      if (adapter) {
-        return { device: "webgpu", dtype: adapter.features.has("shader-f16") ? "q4f16" : "q4" };
-      }
-    }
-  } catch (_) {}
-  return { device: "wasm", dtype: "q4" };
+// One weight file ("q4": 4-bit weights, 32-bit math) for both backends.
+// We deliberately avoid "q4f16": it does the in-between math in 16-bit floats,
+// and Qwen2.5's large internal values overflow 16-bit range on many GPUs,
+// which turns replies into gibberish. Using the same file for WebGPU and WASM
+// also means falling back to WASM never re-downloads anything.
+const DTYPE = "q4";
+
+async function hasWebGPU() {
+  try { return !!(navigator.gpu && await navigator.gpu.requestAdapter()); }
+  catch (_) { return false; }
 }
 
-async function load(model) {
+// Clear signs of numeric breakdown: long runs of one character, rows of
+// dashes, or a pile of stray single letters ("L - L - L"). Thresholds are loose
+// so real math (fractions, long-division layouts) isn't flagged.
+function looksBroken(text) {
+  const t = text.trim();
+  if (/(.)\1{11,}/.test(t)) return true;
+  if (/(?:[-\u2013\u2014_]\s*){16,}/.test(t)) return true;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length >= 15) {
+    const singles = words.filter(w => /^[b-hj-zB-HJ-Z]$/.test(w)).length;
+    if (singles / words.length > 0.2) return true;
+  }
+  return false;
+}
+
+// Stricter check for the start-up test, where we know roughly what to expect.
+function looksHealthy(text) {
+  const t = text.trim();
+  if (t.length < 2 || looksBroken(t)) return false;
+  if (/\b5\b|\bfive\b/i.test(t)) return true;                // answered 2 + 3
+  const letters = (t.match(/[a-z]/gi) || []).length;
+  return letters / t.length > 0.6 && /\b(the|you|that|let's|is|and|to)\b/i.test(t);
+}
+
+// Quick self-test using the real persona prompt, so a broken backend is caught
+// before the visitor ever sees a bad reply.
+async function selfTest(persona) {
+  const out = await generator(
+    [{ role: "system", content: persona }, { role: "user", content: "Hi! What is 2 + 3?" }],
+    { max_new_tokens: 40, do_sample: false },
+  );
+  return looksHealthy(out[0].generated_text.at(-1).content);
+}
+
+async function load(model, persona) {
   const files = {};  // file -> {loaded, total}
   const report = () => {
     let loaded = 0, total = 0;
@@ -251,29 +284,45 @@ async function load(model) {
     else if (p.status === "progress") { files[p.file] = { loaded: p.loaded, total: p.total }; report(); }
     else if (p.status === "done" && files[p.file]) { files[p.file].loaded = files[p.file].total; report(); }
   };
+  const make = (device) => pipeline("text-generation", model, { device, dtype: DTYPE, progress_callback });
 
-  let { device, dtype } = await pickDevice();
-  try {
-    generator = await pipeline("text-generation", model, { device, dtype, progress_callback });
-  } catch (err) {
-    if (device === "wasm") throw err;
-    // WebGPU can fail on some drivers; fall back to WASM.
-    self.postMessage({ type: "status", text: "WebGPU didn't work here — switching to WASM…" });
-    device = "wasm"; dtype = "q4";
-    generator = await pipeline("text-generation", model, { device, dtype, progress_callback });
+  if (await hasWebGPU()) {
+    try {
+      generator = await make("webgpu");
+      self.postMessage({ type: "status", text: "Checking that the model works on your graphics card…" });
+      if (await selfTest(persona)) {
+        self.postMessage({ type: "ready", device: "webgpu", dtype: DTYPE });
+        return;
+      }
+      self.postMessage({ type: "status", text: "Your graphics card gave garbled output — switching to WASM (no extra download)…" });
+    } catch (_) {
+      self.postMessage({ type: "status", text: "WebGPU didn't work here — switching to WASM (no extra download)…" });
+    }
+    try { await generator?.dispose?.(); } catch (_) {}
+    generator = null;
   }
 
+  generator = await make("wasm");
   self.postMessage({ type: "status", text: "Warming up…" });
-  await generator([{ role: "user", content: "Hi" }], { max_new_tokens: 1 });
-  self.postMessage({ type: "ready", device, dtype });
+  if (!(await selfTest(persona))) throw new Error("The model loaded but is producing garbled text on this device.");
+  self.postMessage({ type: "ready", device: "wasm", dtype: DTYPE });
 }
 
 async function generate(messages, opts) {
   stopper.reset();
+  let soFar = "", garbled = false;
   const streamer = new TextStreamer(generator.tokenizer, {
     skip_prompt: true,
     skip_special_tokens: true,
-    callback_function: (text) => self.postMessage({ type: "token", text }),
+    callback_function: (text) => {
+      if (garbled) return;
+      soFar += text;
+      // Safety net: if output degenerates mid-reply, stop instead of showing it.
+      if (soFar.length > 40 && looksBroken(soFar.slice(-200))) {
+        garbled = true; stopper.interrupt(); return;
+      }
+      self.postMessage({ type: "token", text });
+    },
   });
   const out = await generator(messages, {
     max_new_tokens: opts.max_new_tokens,
@@ -285,12 +334,12 @@ async function generate(messages, opts) {
     stopping_criteria: stopper,
   });
   const reply = out[0].generated_text.at(-1).content;
-  self.postMessage({ type: "done", text: reply });
+  self.postMessage({ type: "done", text: reply, garbled });
 }
 
 self.onmessage = async ({ data }) => {
   try {
-    if (data.type === "load") await load(data.model);
+    if (data.type === "load") await load(data.model, data.persona);
     else if (data.type === "generate") await generate(data.messages, data.opts);
     else if (data.type === "stop") stopper.interrupt();
   } catch (err) {
@@ -387,7 +436,7 @@ worker.onmessage = ({ data }) => {
     case "token":
       if (liveBubble) { liveBubble.textContent += data.text; scrollDown(); }
       break;
-    case "done": finishReply(data.text); break;
+    case "done": finishReply(data.garbled ? "" : data.text, data.garbled); break;
     case "error":
       statusEl.textContent = "Oops: " + data.text;
       if (busy) finishReply(liveBubble?.textContent || "");
@@ -404,7 +453,7 @@ loadBtn.addEventListener("click", () => {
   bar.style.display = "block"; barText.style.display = "block";
   barText.textContent = "Starting download…";
   statusEl.textContent = "Downloading the model (only needed once)…";
-  worker.postMessage({ type: "load", model: MODEL });
+  worker.postMessage({ type: "load", model: MODEL, persona: PERSONA });
 });
 
 // ---- Chat -----------------------------------------------------------------
@@ -473,10 +522,13 @@ form.addEventListener("submit", (e) => {
   });
 });
 
-function finishReply(text) {
-  const reply = (text || "").trim() || "Hmm, let's try that one again together.";
+function finishReply(text, garbled = false) {
+  const fallback = "Oh dear, my words got all jumbled up just now! Could you ask me that one more time?";
+  const reply = (text || "").trim() || fallback;
   if (liveBubble) { liveBubble.textContent = reply; liveBubble.classList.remove("typing"); }
-  history.push({ role: "assistant", content: reply });
+  // Never feed garbled output back into the model's memory.
+  if (garbled || reply === fallback) history.pop();
+  else history.push({ role: "assistant", content: reply });
   liveBubble = null; busy = false;
   sendBtn.disabled = false; input.disabled = false; stopBtn.hidden = true;
   input.focus();

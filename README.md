@@ -3,7 +3,7 @@ An assignment completed for ENG6806; a character created for basic interactions.
 
 ## How it works
 
-`index.html` is a single, self-contained page. It uses [Transformers.js](https://huggingface.co/docs/transformers.js) to download `onnx-community/Qwen2.5-0.5B-Instruct` (4-bit, roughly 0.5 GB) once into the browser cache.
+`index.html` is a single, self-contained page. It uses [Transformers.js](https://huggingface.co/docs/transformers.js) to download `onnx-community/Qwen2.5-0.5B-Instruct` (4-bit weights, roughly 0.8 GB) once into the browser cache.
 After that the model runs entirely on the visitor's device: WebGPU when it's available, WASM otherwise.
 
 ## Deploying on GitHub Pages
