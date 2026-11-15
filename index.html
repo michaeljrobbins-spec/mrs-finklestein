@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mrs. Finklestein's Classroom</title>
+<meta name="description" content="Chat with Mrs. Finklestein, a kind 5th-grade teacher, powered by a small language model running entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6efe2;
+    --paper: #fffdf7;
+    --paper-line: #dce8f3;
+    --margin-line: #f2b8b5;
+    --ink: #2b2a33;
+    --ink-soft: #5d5a66;
+    --board: #2f4a3a;
+    --board-ink: #f4f1e6;
+    --chalk-dim: #c9d6cc;
+    --accent: #c8402f;      /* apple red */
+    --accent-ink: #ffffff;
+    --pencil: #f2c14e;      /* pencil yellow */
+    --teacher-bubble: #fff6d6;
+    --teacher-border: #ecd48a;
+    --student-bubble: #e3effa;
+    --student-border: #b5cfe8;
+    --wood: #a8744a;
+    --shadow: 0 2px 0 rgba(0,0,0,.06), 0 8px 24px rgba(60,40,20,.10);
+    --focus: #2b6cb0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1b20; --paper: #26252c; --paper-line: #33323b; --margin-line: #5a3534;
+      --ink: #ece9e2; --ink-soft: #aaa6b2; --board: #1f3329; --board-ink: #eef0e6; --chalk-dim: #9fb3a5;
+      --accent: #e0604d; --teacher-bubble: #3a3424; --teacher-border: #6b5b2c;
+      --student-bubble: #23344a; --student-border: #3c5878; --wood: #7a5236;
+      --shadow: 0 2px 0 rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4); --focus: #7fb2ef;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1b20; --paper: #26252c; --paper-line: #33323b; --margin-line: #5a3534;
+    --ink: #ece9e2; --ink-soft: #aaa6b2; --board: #1f3329; --board-ink: #eef0e6; --chalk-dim: #9fb3a5;
+    --accent: #e0604d; --teacher-bubble: #3a3424; --teacher-border: #6b5b2c;
+    --student-bubble: #23344a; --student-border: #3c5878; --wood: #7a5236;
+    --shadow: 0 2px 0 rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4); --focus: #7fb2ef;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 "Nunito", system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 32px; }
+
+  /* Chalkboard header */
+  .board {
+    background: var(--board);
+    color: var(--board-ink);
+    border: 10px solid var(--wood);
+    border-radius: 6px;
+    padding: 18px 20px 14px;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .board h1 {
+    font: 400 2.1rem/1.1 "Patrick Hand", cursive;
+    margin: 0 0 4px;
+    letter-spacing: .5px;
+  }
+  .board p { margin: 0; color: var(--chalk-dim); font-family: "Patrick Hand", cursive; font-size: 1.15rem; }
+  .board .apple { position: absolute; right: 16px; top: 12px; font-size: 1.8rem; }
+
+  /* Setup card */
+  .card {
+    background: var(--paper);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    margin-top: 16px;
+  }
+  .note { color: var(--ink-soft); font-size: .95rem; margin: 0 0 12px; }
+  .note strong { color: var(--ink); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    font: 700 1rem "Nunito", sans-serif;
+    border: 0; border-radius: 999px;
+    padding: 10px 18px;
+    background: var(--accent); color: var(--accent-ink);
+    cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--ink-soft); border: 1.5px solid var(--paper-line); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .status { font-size: .9rem; color: var(--ink-soft); }
+  .progress {
+    margin-top: 12px; height: 14px; border-radius: 999px; overflow: hidden;
+    background: var(--paper-line); display: none;
+  }
+  .progress > div {
+    height: 100%; width: 0%;
+    background: repeating-linear-gradient(45deg, var(--pencil) 0 12px, #e5ad2e 12px 24px);
+    transition: width .2s ease;
+  }
+  .progress-text { font-size: .85rem; color: var(--ink-soft); margin-top: 6px; display: none; }
+  label.name { font-size: .95rem; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+  label.name input {
+    font: inherit; color: var(--ink); background: var(--bg);
+    border: 1.5px solid var(--paper-line); border-radius: 8px; padding: 6px 10px; width: 150px;
+  }
+
+  /* Notebook chat */
+  .notebook {
+    margin-top: 16px;
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(to right, transparent 46px, var(--margin-line) 46px, var(--margin-line) 48px, transparent 48px),
+      repeating-linear-gradient(to bottom, transparent 0 31px, var(--paper-line) 31px 32px);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+    height: min(62vh, 600px);
+  }
+  .messages { flex: 1; overflow-y: auto; padding: 18px 16px 8px 60px; }
+  .msg { display: flex; margin: 0 0 14px; }
+  .msg .bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .msg.teacher .bubble {
+    background: var(--teacher-bubble);
+    border: 1.5px solid var(--teacher-border);
+    border-top-left-radius: 4px;
+  }
+  .msg.teacher .who { font-family: "Patrick Hand", cursive; font-size: 1.05rem; color: var(--accent); display: block; margin-bottom: 2px; }
+  .msg.student { justify-content: flex-end; }
+  .msg.student .bubble {
+    background: var(--student-bubble);
+    border: 1.5px solid var(--student-border);
+    border-top-right-radius: 4px;
+  }
+  .typing::after { content: "▍"; animation: blink 1s steps(1) infinite; margin-left: 1px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  form.composer {
+    display: flex; gap: 8px; padding: 10px; border-top: 1.5px solid var(--paper-line);
+    background: var(--paper); border-radius: 0 0 10px 10px;
+  }
+  form.composer textarea {
+    flex: 1; resize: none; font: inherit; color: var(--ink);
+    background: var(--bg); border: 1.5px solid var(--paper-line); border-radius: 10px;
+    padding: 9px 12px; min-height: 44px; max-height: 120px;
+  }
+  footer { text-align: center; color: var(--ink-soft); font-size: .8rem; margin-top: 14px; }
+
+  @media (max-width: 520px) {
+    .board h1 { font-size: 1.7rem; padding-right: 36px; }
+    .messages { padding-left: 52px; padding-right: 10px; }
+    .notebook { background-image:
+      linear-gradient(to right, transparent 38px, var(--margin-line) 38px, var(--margin-line) 40px, transparent 40px),
+      repeating-linear-gradient(to bottom, transparent 0 31px, var(--paper-line) 31px 32px); }
+    .msg .bubble { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="board">
+    <span class="apple" aria-hidden="true">🍎</span>
+    <h1>Mrs. Finklestein's Classroom</h1>
+    <p>Room 5B · Everyone is welcome here.</p>
+  </header>
+
+  <section class="card" aria-labelledby="setup-h">
+    <h2 id="setup-h" style="position:absolute;left:-9999px">Set up</h2>
+    <p class="note">
+      <strong>How this works:</strong> the first time you visit, your browser downloads a small AI model
+      (<span id="size-hint">about 0.5&nbsp;GB</span>). It's saved on your device, so later visits start right away.
+      After that, everything runs <strong>entirely on your device</strong> — nothing you type is sent to any server.
+    </p>
+    <div class="row">
+      <button id="load-btn" type="button">Download model</button>
+      <label class="name">Your name (optional)
+        <input id="name" type="text" maxlength="40" autocomplete="given-name" placeholder="e.g. Maya">
+      </label>
+    </div>
+    <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+    <div class="progress-text" id="progress-text"></div>
+    <p class="status" id="status" aria-live="polite" style="margin:10px 0 0">Model not loaded yet.</p>
+  </section>
+
+  <section class="notebook" aria-label="Chat with Mrs. Finklestein">
+    <div class="messages" id="messages" aria-live="polite"></div>
+    <form class="composer" id="composer">
+      <textarea id="input" rows="1" placeholder="Download the model to start chatting…" disabled aria-label="Your message"></textarea>
+      <button id="send-btn" type="submit" disabled>Send</button>
+      <button id="stop-btn" type="button" class="ghost" hidden>Stop</button>
+    </form>
+  </section>
+
+  <footer>Runs with Transformers.js · <span id="backend">backend: not loaded</span></footer>
+</div>
+
+<!-- The model runs in a Web Worker so the page stays responsive while it thinks. -->
+<script id="worker-src" type="text/plain">
+import { pipeline, TextStreamer, InterruptableStoppingCriteria, env }
+  from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.1";
+
+env.allowLocalModels = false;   // always fetch from the Hugging Face Hub
+env.useBrowserCache = true;     // ...and keep a copy in the browser's Cache Storage
+
+let generator = null;
+const stopper = new InterruptableStoppingCriteria();
+
+async function pickDevice() {
+  // Prefer WebGPU; use 16-bit weights only if the GPU supports shader-f16.
+  try {
+    if (navigator.gpu) {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (adapter) {
+        return { device: "webgpu", dtype: adapter.features.has("shader-f16") ? "q4f16" : "q4" };
+      }
+    }
+  } catch (_) {}
+  return { device: "wasm", dtype: "q4" };
+}
+
+async function load(model) {
+  const files = {};  // file -> {loaded, total}
+  const report = () => {
+    let loaded = 0, total = 0;
+    for (const f of Object.values(files)) { loaded += f.loaded; total += f.total; }
+    self.postMessage({ type: "progress", loaded, total });
+  };
+  const progress_callback = (p) => {
+    if (p.status === "initiate") { files[p.file] = { loaded: 0, total: 0 }; }
+    else if (p.status === "progress") { files[p.file] = { loaded: p.loaded, total: p.total }; report(); }
+    else if (p.status === "done" && files[p.file]) { files[p.file].loaded = files[p.file].total; report(); }
+  };
+
+  let { device, dtype } = await pickDevice();
+  try {
+    generator = await pipeline("text-generation", model, { device, dtype, progress_callback });
+  } catch (err) {
+    if (device === "wasm") throw err;
+    // WebGPU can fail on some drivers; fall back to WASM.
+    self.postMessage({ type: "status", text: "WebGPU didn't work here — switching to WASM…" });
+    device = "wasm"; dtype = "q4";
+    generator = await pipeline("text-generation", model, { device, dtype, progress_callback });
+  }
+
+  self.postMessage({ type: "status", text: "Warming up…" });
+  await generator([{ role: "user", content: "Hi" }], { max_new_tokens: 1 });
+  self.postMessage({ type: "ready", device, dtype });
+}
+
+async function generate(messages, opts) {
+  stopper.reset();
+  const streamer = new TextStreamer(generator.tokenizer, {
+    skip_prompt: true,
+    skip_special_tokens: true,
+    callback_function: (text) => self.postMessage({ type: "token", text }),
+  });
+  const out = await generator(messages, {
+    max_new_tokens: opts.max_new_tokens,
+    do_sample: true,
+    temperature: 0.7,
+    top_p: 0.9,
+    repetition_penalty: 1.1,
+    streamer,
+    stopping_criteria: stopper,
+  });
+  const reply = out[0].generated_text.at(-1).content;
+  self.postMessage({ type: "done", text: reply });
+}
+
+self.onmessage = async ({ data }) => {
+  try {
+    if (data.type === "load") await load(data.model);
+    else if (data.type === "generate") await generate(data.messages, data.opts);
+    else if (data.type === "stop") stopper.interrupt();
+  } catch (err) {
+    self.postMessage({ type: "error", text: String(err && err.message || err) });
+  }
+};
+</script>
+
+<script type="module">
+// ---- Model choice ---------------------------------------------------------
+// Qwen2.5-0.5B-Instruct is the smallest model that reliably stays in
+// character with a long persona prompt. For a lighter (but weaker) option,
+// try "HuggingFaceTB/SmolLM2-360M-Instruct".
+const MODEL = "onnx-community/Qwen2.5-0.5B-Instruct";
+
+// ---- Context budget -------------------------------------------------------
+// Small models have small, easily-confused context windows. We send the
+// system prompt + only the most recent turns, and cap reply length.
+const MAX_HISTORY_MESSAGES = 6;     // 3 back-and-forth exchanges
+const MAX_HISTORY_CHARS   = 2400;   // hard cap on remembered text (~600 tokens)
+const MAX_INPUT_CHARS     = 600;
+const MAX_NEW_TOKENS      = 220;
+
+const PERSONA = `You are Mrs. Finklestein, a kind-hearted, patient 5th-grade teacher who has spent years helping kids believe in themselves.
+
+How you talk:
+- Speak gently, using simple, easy-to-follow words and short sentences.
+- Use the listener's name when you know it.
+- You often say things like "Let's think about that together" or "I can see you've got real potential."
+- Keep replies short: usually 3 to 6 sentences.
+
+When someone shares a problem:
+1. Listen first, and reflect back what you heard in your own words.
+2. Offer one or two small, practical suggestions. Never lecture.
+
+What you know: 5th-grade curriculum only — basic grammar and parts of speech; math through long division and simple fractions; American history and basic social studies; earth and space science like cloud types, the water cycle, and the planets.
+If asked about anything beyond that, cheerfully admit it's outside your lesson plans and suggest where to look (a librarian, a parent, a doctor, or another trusted expert).
+
+Always end with an encouraging note about the future. Your goal is to make the person feel the future is bright and full of hope.`;
+
+// ---- Elements -------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const loadBtn = $("load-btn"), statusEl = $("status"), bar = $("progress"),
+      barFill = bar.firstElementChild, barText = $("progress-text"),
+      messagesEl = $("messages"), form = $("composer"), input = $("input"),
+      sendBtn = $("send-btn"), stopBtn = $("stop-btn"), nameEl = $("name"),
+      backendEl = $("backend");
+
+try { nameEl.value = localStorage.getItem("finklestein-name") || ""; } catch (_) {}
+nameEl.addEventListener("change", () => {
+  try { localStorage.setItem("finklestein-name", nameEl.value.trim()); } catch (_) {}
+});
+
+// ---- Worker ---------------------------------------------------------------
+const workerUrl = URL.createObjectURL(new Blob([$("worker-src").textContent], { type: "text/javascript" }));
+const worker = new Worker(workerUrl, { type: "module" });
+
+let history = [];        // {role, content} pairs, trimmed before each request
+let busy = false;
+let liveBubble = null;
+
+const fmtMB = (b) => (b / 1e6).toFixed(0) + " MB";
+
+worker.onmessage = ({ data }) => {
+  switch (data.type) {
+    case "progress": {
+      if (!data.total) break;
+      const pct = Math.min(100, (data.loaded / data.total) * 100);
+      barFill.style.width = pct.toFixed(1) + "%";
+      bar.setAttribute("aria-valuenow", pct.toFixed(0));
+      barText.textContent = `${fmtMB(data.loaded)} of ${fmtMB(data.total)} (${pct.toFixed(0)}%)`;
+      $("size-hint").textContent = fmtMB(data.total);
+      break;
+    }
+    case "status": statusEl.textContent = data.text; break;
+    case "ready": {
+      bar.style.display = "none"; barText.style.display = "none";
+      const label = data.device === "webgpu" ? "WebGPU (fast)" : "WASM (CPU — a bit slower)";
+      statusEl.textContent = `Ready! Running on your device using ${label}.`;
+      backendEl.textContent = `backend: ${data.device} · ${data.dtype}`;
+      loadBtn.textContent = "Model loaded ✓";
+      input.disabled = false; sendBtn.disabled = false;
+      input.placeholder = "Type a message to Mrs. Finklestein…";
+      greet();
+      input.focus();
+      break;
+    }
+    case "token":
+      if (liveBubble) { liveBubble.textContent += data.text; scrollDown(); }
+      break;
+    case "done": finishReply(data.text); break;
+    case "error":
+      statusEl.textContent = "Oops: " + data.text;
+      if (busy) finishReply(liveBubble?.textContent || "");
+      else { loadBtn.disabled = false; loadBtn.textContent = "Try again"; }
+      break;
+  }
+};
+
+loadBtn.addEventListener("click", () => {
+  loadBtn.disabled = true;
+  loadBtn.textContent = "Downloading…";
+  bar.style.display = "block"; barText.style.display = "block";
+  barText.textContent = "Starting download…";
+  statusEl.textContent = "Downloading the model (only needed once)…";
+  worker.postMessage({ type: "load", model: MODEL });
+});
+
+// ---- Chat -----------------------------------------------------------------
+function addMessage(role, text) {
+  const row = document.createElement("div");
+  row.className = "msg " + (role === "assistant" ? "teacher" : "student");
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  if (role === "assistant") {
+    const who = document.createElement("span");
+    who.className = "who"; who.textContent = "Mrs. Finklestein";
+    const body = document.createElement("span");
+    body.textContent = text;
+    bubble.append(who, body);
+    row.append(bubble); messagesEl.append(row); scrollDown();
+    return body;
+  }
+  bubble.textContent = text;
+  row.append(bubble); messagesEl.append(row); scrollDown();
+  return bubble;
+}
+const scrollDown = () => { messagesEl.scrollTop = messagesEl.scrollHeight; };
+
+function greet() {
+  if (messagesEl.childElementCount) return;
+  const name = nameEl.value.trim();
+  addMessage("assistant",
+    `Hello${name ? ", " + name : ""}! Come on in and have a seat. ` +
+    `What's on your mind today? It can be a homework question or anything you're working through.`);
+}
+
+function systemPrompt() {
+  const name = nameEl.value.trim();
+  return PERSONA + (name
+    ? `\n\nThe person you are talking with is named ${name}. Use their name warmly.`
+    : `\n\nYou don't know the person's name yet. You may gently ask for it once.`);
+}
+
+function trimmedHistory() {
+  let h = history.slice(-MAX_HISTORY_MESSAGES);
+  // Drop oldest turns until under the character budget.
+  while (h.length > 1 && h.reduce((n, m) => n + m.content.length, 0) > MAX_HISTORY_CHARS) h = h.slice(1);
+  // Conversation must start with a user turn.
+  while (h.length && h[0].role !== "user") h = h.slice(1);
+  return h;
+}
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = input.value.trim().slice(0, MAX_INPUT_CHARS);
+  if (!text || busy) return;
+  input.value = ""; autosize();
+  addMessage("user", text);
+  history.push({ role: "user", content: text });
+  history = history.slice(-MAX_HISTORY_MESSAGES * 2); // never let the array grow unbounded
+
+  busy = true;
+  sendBtn.disabled = true; input.disabled = true; stopBtn.hidden = false;
+  liveBubble = addMessage("assistant", "");
+  liveBubble.classList.add("typing");
+
+  worker.postMessage({
+    type: "generate",
+    messages: [{ role: "system", content: systemPrompt() }, ...trimmedHistory()],
+    opts: { max_new_tokens: MAX_NEW_TOKENS },
+  });
+});
+
+function finishReply(text) {
+  const reply = (text || "").trim() || "Hmm, let's try that one again together.";
+  if (liveBubble) { liveBubble.textContent = reply; liveBubble.classList.remove("typing"); }
+  history.push({ role: "assistant", content: reply });
+  liveBubble = null; busy = false;
+  sendBtn.disabled = false; input.disabled = false; stopBtn.hidden = true;
+  input.focus();
+}
+
+stopBtn.addEventListener("click", () => worker.postMessage({ type: "stop" }));
+
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+});
+function autosize() { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 120) + "px"; }
+input.addEventListener("input", autosize);
+</script>
+</body>
+</html>
