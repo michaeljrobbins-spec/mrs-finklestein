@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mrs. Finklestein's Classroom</title>
 <meta name="description" content="Chat with Mrs. Finklestein, a kind 5th-grade teacher, powered by a small language model running entirely in your browser.">
-<meta name="theme-color" content="#2f4a3a">
+<meta name="theme-color" content="#c79a66">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Mrs. Finklestein's Classroom">
 <meta property="og:description" content="A kind 5th-grade teacher you can chat with. The AI runs entirely on your device.">
@@ -14,217 +14,333 @@
 <link rel="preconnect" href="https://huggingface.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f6efe2;
-    --paper: #fffdf7;
-    --paper-line: #dce8f3;
-    --margin-line: #f2b8b5;
-    --ink: #2b2a33;
-    --ink-soft: #5d5a66;
-    --board: #2f4a3a;
-    --board-ink: #f4f1e6;
-    --chalk-dim: #c9d6cc;
-    --accent: #c8402f;      /* apple red */
-    --accent-ink: #ffffff;
-    --pencil: #f2c14e;      /* pencil yellow */
-    --teacher-bubble: #fff6d6;
-    --teacher-border: #ecd48a;
-    --student-bubble: #e3effa;
-    --student-border: #b5cfe8;
-    --wood: #a8744a;
-    --shadow: 0 2px 0 rgba(0,0,0,.06), 0 8px 24px rgba(60,40,20,.10);
-    --focus: #2b6cb0;
+    --cork: #c79a66;
+    --cork-dark: rgba(92, 56, 24, .28);
+    --cork-light: rgba(255, 236, 204, .30);
+    --ink: #2a2622;
+    --ink-soft: #574e46;
+    --card: #fffdf5;            /* index cards / notebook paper */
+    --line: #cfe0ef;            /* notebook lines */
+    --margin: #f0a8a4;          /* notebook margin */
+    --paper-yellow: #ffe98a;
+    --paper-blue: #b3dcf7;
+    --paper-green: #bfe6a8;
+    --paper-pink: #fbc2d0;
+    --paper-orange: #ffcd96;
+    --paper-purple: #dacbf4;
+    --paper-red: #c8402f;       /* buttons: white ink */
+    --paper-red-ink: #ffffff;
+    --sticky: #fff3a3;          /* teacher's sticky note */
+    --sticky-edge: #e6d260;
+    --student: #e4f1ff;
+    --student-edge: #a8c8e8;
+    --tape: rgba(255, 255, 240, .55);
+    --tape-edge: rgba(160, 150, 120, .35);
+    --star-1: #ffe066;
+    --star-2: #f0b400;
+    --star-edge: #a87500;
+    --pin: #d6453a;
+    --shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 14px rgba(70, 40, 10, .25);
+    --focus: #1d5fb4;
+    --hand: "Patrick Hand", "Comic Sans MS", "Chalkboard SE", cursive;
+    --plain: "Nunito", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #1c1b20; --paper: #26252c; --paper-line: #33323b; --margin-line: #5a3534;
-      --ink: #ece9e2; --ink-soft: #aaa6b2; --board: #1f3329; --board-ink: #eef0e6; --chalk-dim: #9fb3a5;
-      --accent: #e0604d; --teacher-bubble: #3a3424; --teacher-border: #6b5b2c;
-      --student-bubble: #23344a; --student-border: #3c5878; --wood: #7a5236;
-      --shadow: 0 2px 0 rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4); --focus: #7fb2ef;
+      --cork: #5b4431; --cork-dark: rgba(0,0,0,.30); --cork-light: rgba(255,220,180,.08);
+      --ink: #f3eee6; --ink-soft: #cfc6b9; --card: #2c2824; --line: #3d3833; --margin: #6e3c3a;
+      --paper-yellow: #6a5a1c; --paper-blue: #23496b; --paper-green: #2e5a2b; --paper-pink: #6c3045;
+      --paper-orange: #6f4520; --paper-purple: #47396d; --paper-red: #c9483a;
+      --sticky: #4f4720; --sticky-edge: #7e6f2c; --student: #22384f; --student-edge: #3e5e82;
+      --tape: rgba(255,255,240,.18); --tape-edge: rgba(255,255,240,.12);
+      --shadow: 0 1px 0 rgba(0,0,0,.3), 0 6px 14px rgba(0,0,0,.45); --focus: #8cbcf5;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #1c1b20; --paper: #26252c; --paper-line: #33323b; --margin-line: #5a3534;
-    --ink: #ece9e2; --ink-soft: #aaa6b2; --board: #1f3329; --board-ink: #eef0e6; --chalk-dim: #9fb3a5;
-    --accent: #e0604d; --teacher-bubble: #3a3424; --teacher-border: #6b5b2c;
-    --student-bubble: #23344a; --student-border: #3c5878; --wood: #7a5236;
-    --shadow: 0 2px 0 rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4); --focus: #7fb2ef;
+    --cork: #5b4431; --cork-dark: rgba(0,0,0,.30); --cork-light: rgba(255,220,180,.08);
+    --ink: #f3eee6; --ink-soft: #cfc6b9; --card: #2c2824; --line: #3d3833; --margin: #6e3c3a;
+    --paper-yellow: #6a5a1c; --paper-blue: #23496b; --paper-green: #2e5a2b; --paper-pink: #6c3045;
+    --paper-orange: #6f4520; --paper-purple: #47396d; --paper-red: #c9483a;
+    --sticky: #4f4720; --sticky-edge: #7e6f2c; --student: #22384f; --student-edge: #3e5e82;
+    --tape: rgba(255,255,240,.18); --tape-edge: rgba(255,255,240,.12);
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 6px 14px rgba(0,0,0,.45); --focus: #8cbcf5;
   }
 
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body {
-    background: var(--bg);
     color: var(--ink);
-    font: 16px/1.5 "Nunito", system-ui, sans-serif;
+    font: 1.2rem/1.45 var(--hand);
     min-height: 100vh;
+    /* Cork board */
+    background-color: var(--cork);
+    background-image:
+      radial-gradient(var(--cork-dark) 1px, transparent 1.6px),
+      radial-gradient(var(--cork-light) 1px, transparent 1.6px),
+      radial-gradient(var(--cork-dark) .8px, transparent 1.3px);
+    background-size: 13px 13px, 17px 17px, 7px 7px;
+    background-position: 0 0, 6px 9px, 3px 2px;
   }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 32px; }
+  /* Scalloped bulletin-board border along the top */
+  .trim {
+    height: 22px;
+    background:
+      radial-gradient(circle at 12px 0, var(--paper-red) 11px, transparent 12px) 0 0 / 96px 22px repeat-x,
+      radial-gradient(circle at 36px 0, #f2b51f 11px, transparent 12px) 0 0 / 96px 22px repeat-x,
+      radial-gradient(circle at 60px 0, #3b8fd9 11px, transparent 12px) 0 0 / 96px 22px repeat-x,
+      radial-gradient(circle at 84px 0, #4caf50 11px, transparent 12px) 0 0 / 96px 22px repeat-x;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 18px 16px 28px; }
 
-  /* Chalkboard header */
-  .board {
-    background: var(--board);
-    color: var(--board-ink);
-    border: 10px solid var(--wood);
-    border-radius: 6px;
-    padding: 18px 20px 14px;
-    box-shadow: var(--shadow);
+  /* Shared construction-paper look */
+  .paper {
     position: relative;
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: 22px 20px 18px;
+    /* faint paper fibers */
+    background-image:
+      repeating-linear-gradient(115deg, rgba(255,255,255,.07) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(25deg, rgba(0,0,0,.035) 0 1px, transparent 1px 9px);
   }
-  .board h1 {
-    font: 400 2.1rem/1.1 "Patrick Hand", cursive;
-    margin: 0 0 4px;
-    letter-spacing: .5px;
+  .tape::before {
+    content: ""; position: absolute; top: -11px; left: 50%;
+    width: 96px; height: 24px; margin-left: -48px;
+    background: var(--tape); border: 1px solid var(--tape-edge);
+    transform: rotate(-3deg);
   }
-  .board p { margin: 0; color: var(--chalk-dim); font-family: "Patrick Hand", cursive; font-size: 1.15rem; }
-  .board .apple { position: absolute; right: 16px; top: 12px; font-size: 1.8rem; }
+  .pin::after {
+    content: ""; position: absolute; top: 8px; left: 50%; width: 14px; height: 14px; margin-left: -7px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff8 0 2px, var(--pin) 3px);
+    box-shadow: 1px 2px 2px rgba(0,0,0,.35);
+  }
+
+  /* Header: cut-paper letters */
+  header { text-align: center; margin: 6px 0 22px; position: relative; }
+  header h1 {
+    margin: 0; font: 400 clamp(1.9rem, 5.2vw, 3rem)/1.25 var(--hand);
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px;
+  }
+  header h1 .word { display: inline-flex; gap: 2px; }
+  header h1 .letter {
+    display: inline-block; min-width: .9em; padding: 0 .12em;
+    text-align: center; color: var(--ink);
+    border-radius: 3px; box-shadow: 0 2px 3px rgba(0,0,0,.25);
+  }
+  header .sub {
+    display: inline-block; margin-top: 12px; padding: 4px 16px;
+    background: var(--card); box-shadow: var(--shadow); transform: rotate(-1deg);
+    font-size: 1.25rem;
+  }
+  .star { width: 1em; height: 1em; vertical-align: -.12em; flex: none; }
+  header .star.big { position: absolute; width: 54px; height: 54px; top: -6px; transform: rotate(-14deg); }
+  header .star.big.left { left: 0; }
+  header .star.big.right { right: 0; transform: rotate(12deg); }
+
+  /* Layout */
+  .layout { display: grid; gap: 26px; }
+  @media (min-width: 900px) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; }
+    .chat-col { position: sticky; top: 16px; }
+  }
+  .left-col { display: grid; gap: 26px; }
 
   /* Setup card */
-  .card {
-    background: var(--paper);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-    padding: 16px 18px;
-    margin-top: 16px;
-  }
-  .note { color: var(--ink-soft); font-size: .95rem; margin: 0 0 12px; }
-  .note strong { color: var(--ink); }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .setup { background-color: var(--paper-yellow); transform: rotate(-.6deg); }
+  .setup h2, .topics h2 { font: 400 1.6rem/1.2 var(--hand); margin: 0 0 6px; }
+  .note { margin: 0 0 12px; font-size: 1.1rem; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   button {
-    font: 700 1rem "Nunito", sans-serif;
-    border: 0; border-radius: 999px;
-    padding: 10px 18px;
-    background: var(--accent); color: var(--accent-ink);
+    font: 400 1.25rem/1 var(--hand);
+    border: 0; border-radius: 4px;
+    padding: 11px 18px 9px;
+    background: var(--paper-red); color: var(--paper-red-ink);
+    box-shadow: 0 3px 0 rgba(0,0,0,.25);
     cursor: pointer;
   }
+  button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.25); }
   button:disabled { opacity: .55; cursor: not-allowed; }
-  button.ghost { background: transparent; color: var(--ink-soft); border: 1.5px solid var(--paper-line); }
-  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .status { font-size: .9rem; color: var(--ink-soft); }
+  button.ghost { background: var(--card); color: var(--ink); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 2px;
+  }
+  label.name, label.model { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  label.model { margin-top: 10px; }
+  input, select, textarea { color: var(--ink); background: var(--card); border: 2px solid var(--ink-soft); border-radius: 4px; }
+  label.name input { font: 1.15rem var(--hand); padding: 4px 10px; width: 160px; }
+  label.model select { font: .95rem var(--plain); padding: 5px 8px; max-width: 100%; }
+  .status { margin: 10px 0 0; font-size: 1.1rem; }
   .progress {
-    margin-top: 12px; height: 14px; border-radius: 999px; overflow: hidden;
-    background: var(--paper-line); display: none;
+    margin-top: 12px; height: 18px; border-radius: 4px; overflow: hidden;
+    background: var(--card); border: 2px solid var(--ink-soft); display: none;
   }
   .progress > div {
     height: 100%; width: 0%;
-    background: repeating-linear-gradient(45deg, var(--pencil) 0 12px, #e5ad2e 12px 24px);
+    background: repeating-linear-gradient(45deg, #f2c14e 0 12px, #e5a92a 12px 24px);
     transition: width .2s ease;
   }
-  .progress-text { font-size: .85rem; color: var(--ink-soft); margin-top: 6px; display: none; }
-  label.model select {
-    font: inherit; color: var(--ink); background: var(--bg);
-    border: 1.5px solid var(--paper-line); border-radius: 8px; padding: 6px 8px; max-width: 100%;
+  .progress-text { font-size: 1rem; margin-top: 4px; display: none; }
+
+  /* Topic board */
+  .topics { background-color: var(--paper-blue); transform: rotate(.4deg); }
+  .tip {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: var(--card); padding: 8px 12px; margin: 4px 0 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2); transform: rotate(-.8deg);
   }
-  label.model { font-size: .95rem; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .switch-note { text-align: center; color: var(--ink-soft); font-size: .85rem; margin: 4px 0 14px; font-style: italic; }
-  label.name { font-size: .95rem; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
-  label.name input {
-    font: inherit; color: var(--ink); background: var(--bg);
-    border: 1.5px solid var(--paper-line); border-radius: 8px; padding: 6px 10px; width: 150px;
+  .tip .star { width: 1.4em; height: 1.4em; margin-top: 2px; }
+  .topic-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .topic { padding: 22px 14px 14px; }
+  .topic:nth-child(odd) { transform: rotate(-.8deg); }
+  .topic:nth-child(even) { transform: rotate(.7deg); }
+  .topic h3 { font: 400 1.35rem/1.2 var(--hand); margin: 0 0 8px; display: flex; gap: 6px; align-items: center; }
+  .topic ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+  .topic button.q {
+    width: 100%; text-align: left;
+    font: 1.1rem/1.3 var(--hand); color: var(--ink);
+    background: var(--card); border-radius: 2px; padding: 7px 10px;
+    box-shadow: 0 2px 0 rgba(0,0,0,.18);
   }
+  .topic button.q:hover:not(:disabled) { transform: rotate(-1deg) scale(1.02); }
+  .t-talk { background-color: var(--paper-pink); }
+  .t-grammar { background-color: var(--paper-green); }
+  .t-math { background-color: var(--paper-orange); }
+  .t-history { background-color: var(--paper-purple); }
+  .t-science { background-color: var(--paper-yellow); }
 
   /* Notebook chat */
   .notebook {
-    margin-top: 16px;
-    background-color: var(--paper);
+    background-color: var(--card);
     background-image:
-      linear-gradient(to right, transparent 46px, var(--margin-line) 46px, var(--margin-line) 48px, transparent 48px),
-      repeating-linear-gradient(to bottom, transparent 0 31px, var(--paper-line) 31px 32px);
-    border-radius: 10px;
+      linear-gradient(to right, transparent 46px, var(--margin) 46px, var(--margin) 48px, transparent 48px),
+      repeating-linear-gradient(to bottom, transparent 0 31px, var(--line) 31px 32px);
     box-shadow: var(--shadow);
     display: flex; flex-direction: column;
-    height: min(62vh, 600px);
+    height: min(76vh, 740px);
+    position: relative;
   }
-  .messages { flex: 1; overflow-y: auto; padding: 18px 16px 8px 60px; }
-  .msg { display: flex; margin: 0 0 14px; }
+  .notebook .holes {
+    position: absolute; left: 14px; top: 0; bottom: 0; width: 16px;
+    background: radial-gradient(circle, var(--cork) 6px, transparent 7px) 0 40px / 16px 33% repeat-y;
+    pointer-events: none;
+  }
+  .chat-title { font: 400 1.5rem/1 var(--hand); padding: 20px 16px 6px 62px; margin: 0; }
+  .messages { flex: 1; overflow-y: auto; padding: 10px 16px 8px 62px; }
+  .msg { display: flex; margin: 0 0 16px; }
   .msg .bubble {
-    max-width: 85%;
-    padding: 10px 14px;
-    border-radius: 14px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    max-width: 88%; padding: 10px 14px; white-space: pre-wrap; overflow-wrap: anywhere;
+    font-size: 1.25rem; line-height: 1.4;
+    box-shadow: 0 2px 4px rgba(0,0,0,.15);
   }
-  .msg.teacher .bubble {
-    background: var(--teacher-bubble);
-    border: 1.5px solid var(--teacher-border);
-    border-top-left-radius: 4px;
-  }
-  .msg.teacher .who { font-family: "Patrick Hand", cursive; font-size: 1.05rem; color: var(--accent); display: block; margin-bottom: 2px; }
+  .msg.teacher .bubble { background: var(--sticky); border-bottom: 3px solid var(--sticky-edge); transform: rotate(-.5deg); }
+  .msg.teacher .who { display: flex; align-items: center; gap: 6px; font-size: 1.05rem; color: var(--ink-soft); margin-bottom: 2px; }
   .msg.student { justify-content: flex-end; }
-  .msg.student .bubble {
-    background: var(--student-bubble);
-    border: 1.5px solid var(--student-border);
-    border-top-right-radius: 4px;
-  }
-  .typing::after { content: "▍"; animation: blink 1s steps(1) infinite; margin-left: 1px; }
-  @keyframes blink { 50% { opacity: 0; } }
+  .msg.student .bubble { background: var(--student); border-bottom: 3px solid var(--student-edge); transform: rotate(.5deg); }
+  .typing::after { content: "✏️"; margin-left: 4px; display: inline-block; animation: wiggle .6s ease-in-out infinite alternate; }
+  @keyframes wiggle { to { transform: translateX(4px) rotate(8deg); } }
+  @media (prefers-reduced-motion: reduce) { .typing::after { animation: none; } .topic button.q:hover:not(:disabled) { transform: none; } }
+  .switch-note { text-align: center; color: var(--ink-soft); font-size: 1rem; margin: 4px 0 14px; }
 
-  form.composer {
-    display: flex; gap: 8px; padding: 10px; border-top: 1.5px solid var(--paper-line);
-    background: var(--paper); border-radius: 0 0 10px 10px;
-  }
+  form.composer { display: flex; gap: 8px; padding: 10px 12px 12px 62px; border-top: 2px dashed var(--line); background: var(--card); }
   form.composer textarea {
-    flex: 1; resize: none; font: inherit; color: var(--ink);
-    background: var(--bg); border: 1.5px solid var(--paper-line); border-radius: 10px;
-    padding: 9px 12px; min-height: 44px; max-height: 120px;
+    flex: 1; resize: none; font: 1.2rem/1.35 var(--hand);
+    padding: 9px 12px; min-height: 46px; max-height: 120px;
   }
-  footer { text-align: center; color: var(--ink-soft); font-size: .8rem; margin-top: 14px; }
+  footer { text-align: center; font: .85rem var(--plain); margin-top: 22px; }
+  footer span.tag { background: var(--card); padding: 3px 10px; box-shadow: var(--shadow); display: inline-block; }
 
   @media (max-width: 520px) {
-    .board h1 { font-size: 1.7rem; padding-right: 36px; }
-    .messages { padding-left: 52px; padding-right: 10px; }
+    header .star.big { width: 36px; height: 36px; top: -14px; }
+    header h1 { font-size: 1.55rem; gap: 4px 10px; }
+    .paper { padding: 22px 14px 16px; }
+    .setup, .topics, .topic:nth-child(n) { transform: none; }
     .notebook { background-image:
-      linear-gradient(to right, transparent 38px, var(--margin-line) 38px, var(--margin-line) 40px, transparent 40px),
-      repeating-linear-gradient(to bottom, transparent 0 31px, var(--paper-line) 31px 32px); }
+      linear-gradient(to right, transparent 34px, var(--margin) 34px, var(--margin) 36px, transparent 36px),
+      repeating-linear-gradient(to bottom, transparent 0 31px, var(--line) 31px 32px); }
+    .notebook .holes { left: 8px; }
+    .chat-title, .messages { padding-left: 46px; padding-right: 10px; }
+    form.composer { padding-left: 46px; }
     .msg .bubble { max-width: 100%; }
   }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--star-1)"/><stop offset="1" stop-color="var(--star-2)"/>
+    </linearGradient>
+    <symbol id="star" viewBox="0 0 24 24">
+      <path d="M12 1.8l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.9l-6.4 3.5L7 14.3 1.7 9.3l7.2-.9z"
+            fill="url(#gold)" stroke="var(--star-edge)" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M8.5 8.5l1.4-.2" stroke="#fff" stroke-opacity=".7" stroke-width="1.4" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+<div class="trim" aria-hidden="true"></div>
 <div class="wrap">
-  <header class="board">
-    <span class="apple" aria-hidden="true">🍎</span>
-    <h1>Mrs. Finklestein's Classroom</h1>
-    <p>Room 5B · Everyone is welcome here.</p>
+  <header>
+    <svg class="star big left" aria-hidden="true"><use href="#star"/></svg>
+    <svg class="star big right" aria-hidden="true"><use href="#star"/></svg>
+    <h1 id="title">Mrs. Finklestein's Classroom</h1>
+    <div class="sub">Room 5B · Everyone is welcome here 🍎</div>
   </header>
 
-  <section class="card" aria-labelledby="setup-h">
-    <h2 id="setup-h" style="position:absolute;left:-9999px">Set up</h2>
-    <p class="note">
-      <strong>How this works:</strong> the first time you visit, your browser downloads a small AI model
-      (<span id="size-hint">about 0.8&nbsp;GB</span>). It's saved on your device, so later visits start right away.
-      After that, everything runs <strong>entirely on your device</strong> — nothing you type is sent to any server.
-    </p>
-    <div class="row">
-      <button id="load-btn" type="button">Download model</button>
-      <label class="name">Your name (optional)
-        <input id="name" type="text" maxlength="40" autocomplete="given-name" placeholder="e.g. Maya">
-      </label>
+  <div class="layout">
+    <div class="left-col">
+      <section class="paper setup tape" aria-labelledby="setup-h">
+        <h2 id="setup-h">Before we start</h2>
+        <p class="note">
+          The first time you visit, your browser downloads a small AI model
+          (<span id="size-hint">about 0.8&nbsp;GB</span>). It's saved on your device, so later visits start right away.
+          After that, everything runs <strong>entirely on your device</strong>. Nothing you type is sent to any server.
+        </p>
+        <div class="row">
+          <button id="load-btn" type="button">Download model</button>
+          <label class="name">Your name (optional)
+            <input id="name" type="text" maxlength="40" autocomplete="given-name" placeholder="e.g. Maya">
+          </label>
+        </div>
+        <label class="model">Model
+          <select id="model-select">
+            <option value="small">Qwen2.5 0.5B · smaller · ~0.8 GB</option>
+            <option value="large">Qwen2.5 1.5B · bigger · ~1.8 GB</option>
+          </select>
+        </label>
+        <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+        <div class="progress-text" id="progress-text"></div>
+        <p class="status" id="status" aria-live="polite">Model not loaded yet.</p>
+      </section>
+
+      <section class="paper topics pin" aria-labelledby="topics-h">
+        <h2 id="topics-h">Things you can ask Mrs. Finklestein about</h2>
+        <p class="tip">
+          <svg class="star" aria-hidden="true"><use href="#star"/></svg>
+          <span>She works best with short, simple questions, one at a time. Tap one below to get started!</span>
+        </p>
+        <div class="topic-grid" id="topic-grid"></div>
+      </section>
     </div>
-    <label class="model">Model
-      <select id="model-select">
-        <option value="small">Qwen2.5 0.5B · smaller · ~0.8 GB</option>
-        <option value="large">Qwen2.5 1.5B · bigger · ~1.8 GB</option>
-      </select>
-    </label>
-    <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
-    <div class="progress-text" id="progress-text"></div>
-    <p class="status" id="status" aria-live="polite" style="margin:10px 0 0">Model not loaded yet.</p>
-  </section>
 
-  <section class="notebook" aria-label="Chat with Mrs. Finklestein">
-    <div class="messages" id="messages" aria-live="polite"></div>
-    <form class="composer" id="composer">
-      <textarea id="input" rows="1" placeholder="Download the model to start chatting…" disabled aria-label="Your message"></textarea>
-      <button id="send-btn" type="submit" disabled>Send</button>
-      <button id="stop-btn" type="button" class="ghost" hidden>Stop</button>
-    </form>
-  </section>
+    <div class="chat-col">
+      <section class="notebook" aria-labelledby="chat-h">
+        <div class="holes" aria-hidden="true"></div>
+        <h2 class="chat-title" id="chat-h">Let's chat!</h2>
+        <div class="messages" id="messages" aria-live="polite"></div>
+        <form class="composer" id="composer">
+          <textarea id="input" rows="1" placeholder="Download the model first…" disabled aria-label="Your message"></textarea>
+          <button id="send-btn" type="submit" disabled>Send</button>
+          <button id="stop-btn" type="button" class="ghost" hidden>Stop</button>
+        </form>
+      </section>
+    </div>
+  </div>
 
-  <footer>Runs with Transformers.js · <span id="backend">backend: not loaded</span></footer>
+  <footer><span class="tag">Runs with Transformers.js · <span id="backend">backend: not loaded</span></span></footer>
 </div>
 
 <!-- The model runs in a Web Worker so the page stays responsive while it thinks. -->
@@ -462,9 +578,10 @@ function onWorkerMessage({ data }) {
       modelSelect.disabled = false;
       loadBtn.textContent = "Model loaded ✓";
       input.disabled = false; sendBtn.disabled = false;
-      input.placeholder = "Type a message to Mrs. Finklestein…";
+      input.placeholder = "Ask a short question…";
       greet();
       input.focus();
+      if (pendingQuestion) { input.value = pendingQuestion; pendingQuestion = null; form.requestSubmit(); }
       break;
     }
     case "token": {
@@ -502,7 +619,7 @@ modelSelect.addEventListener("change", () => {
   startWorker();
   busy = false; liveBubble = null; history = [];   // each model starts with a clean memory
   input.disabled = true; sendBtn.disabled = true; stopBtn.hidden = true;
-  input.placeholder = "Download the model to start chatting…";
+  input.placeholder = "Download the model first…";
   loadBtn.disabled = false; loadBtn.textContent = "Download model";
   backendEl.textContent = "backend: not loaded";
   statusEl.textContent = `Switched to ${MODELS[modelKey].name}. Click "Download model" to load it (models you've loaded before come from your device's cache).`;
@@ -526,6 +643,100 @@ loadBtn.addEventListener("click", () => {
   worker.postMessage({ type: "load", model: MODELS[modelKey].id, persona: PERSONA });
 });
 
+// ---- Classroom decorations -----------------------------------------------
+// Title as cut-out construction-paper letters (screen readers get the plain text).
+(() => {
+  const title = $("title");
+  const text = title.textContent;
+  const colors = ["--paper-red", "--paper-yellow", "--paper-blue", "--paper-green", "--paper-orange", "--paper-purple", "--paper-pink"];
+  title.setAttribute("aria-label", text);
+  title.textContent = "";
+  let n = 0;
+  for (const word of text.split(" ")) {
+    const w = document.createElement("span");
+    w.className = "word"; w.setAttribute("aria-hidden", "true");
+    for (const ch of word) {
+      const l = document.createElement("span");
+      l.className = "letter"; l.textContent = ch;
+      const c = colors[n % colors.length];
+      l.style.background = `var(${c})`;
+      if (c === "--paper-red") l.style.color = "var(--paper-red-ink)";
+      l.style.transform = `rotate(${[-4, 3, -2, 5, -3, 2, 4, -5][n % 8]}deg)`;
+      w.append(l); n++;
+    }
+    title.append(w);
+  }
+})();
+
+// ---- Things you can ask ----------------------------------------------------
+const TOPICS = [
+  { cls: "t-talk", icon: "💬", title: "Talk it through", qs: [
+    "I've been feeling stressed lately.",
+    "I had a tough day today.",
+    "I feel stuck on a big project.",
+  ]},
+  { cls: "t-grammar", icon: "✏️", title: "Grammar", qs: [
+    "What are the parts of speech?",
+    "What's the difference between a noun and a verb?",
+    "When do I use a comma?",
+  ]},
+  { cls: "t-math", icon: "➗", title: "Math", qs: [
+    "How do I do long division?",
+    "How do I add 1/2 and 1/4?",
+    "What does the bottom number of a fraction mean?",
+  ]},
+  { cls: "t-history", icon: "🇺🇸", title: "American history & social studies", qs: [
+    "Why did the colonists want independence?",
+    "What are the three branches of government?",
+    "Who was Harriet Tubman?",
+  ]},
+  { cls: "t-science", icon: "🌎", title: "Earth & space science", qs: [
+    "What are the different kinds of clouds?",
+    "How does the water cycle work?",
+    "Which planet is the biggest?",
+  ]},
+];
+let pendingQuestion = null;
+
+(() => {
+  const grid = $("topic-grid");
+  for (const t of TOPICS) {
+    const card = document.createElement("div");
+    card.className = `paper topic pin ${t.cls}`;
+    const h3 = document.createElement("h3");
+    h3.innerHTML = `<span aria-hidden="true">${t.icon}</span>`;
+    h3.append(t.title);
+    const ul = document.createElement("ul");
+    for (const q of t.qs) {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "q"; b.textContent = q;
+      b.addEventListener("click", () => askSuggestion(q));
+      li.append(b); ul.append(li);
+    }
+    card.append(h3, ul);
+    grid.append(card);
+  }
+})();
+
+function askSuggestion(q) {
+  if (busy) { statusEl.textContent = "One moment! Mrs. Finklestein is still answering."; return; }
+  // Bring the chat into view on small screens.
+  if (!matchMedia("(min-width: 900px)").matches) $("chat-h").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (input.disabled) {
+    // Model isn't ready yet: hold the question and ask it as soon as it is.
+    pendingQuestion = q;
+    input.value = q; autosize();
+    statusEl.textContent = loadBtn.disabled
+      ? "Got it! I'll ask that as soon as the model is ready."
+      : "Click \"Download model\" first. Your question will be asked as soon as she's ready.";
+    if (!loadBtn.disabled) loadBtn.focus({ preventScroll: true });
+    return;
+  }
+  input.value = q;
+  form.requestSubmit();
+}
+
 // ---- Chat -----------------------------------------------------------------
 function addMessage(role, text) {
   const row = document.createElement("div");
@@ -534,7 +745,9 @@ function addMessage(role, text) {
   bubble.className = "bubble";
   if (role === "assistant") {
     const who = document.createElement("span");
-    who.className = "who"; who.textContent = "Mrs. Finklestein";
+    who.className = "who";
+    who.innerHTML = '<svg class="star" aria-hidden="true"><use href="#star"/></svg>';
+    who.append("Mrs. Finklestein");
     const body = document.createElement("span");
     body.textContent = text;
     bubble.append(who, body);
