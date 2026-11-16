@@ -3,7 +3,7 @@ An assignment completed for ENG6806; a character created for basic interactions.
 
 ## How it works
 
-`index.html` is a single, self-contained page. It uses [Transformers.js](https://huggingface.co/docs/transformers.js) to download `onnx-community/Qwen2.5-0.5B-Instruct` (4-bit weights, roughly 0.8 GB) once into the browser cache. A picker on the page also offers the bigger `onnx-community/Llama-3.2-1B-Instruct-q4f16` (roughly 1.2 GB, WebGPU only) for comparison. An earlier `Qwen2.5-1.5B-Instruct` option was removed: at about 1.8 GB it needed more memory than the browser allows while starting up.
+`index.html` is a single, self-contained page. It uses [Transformers.js](https://huggingface.co/docs/transformers.js) to download `onnx-community/Qwen2.5-0.5B-Instruct` (4-bit weights, roughly 0.8 GB) once into the browser cache. The smaller Qwen model is the default on every visit. A picker also offers the optional, bigger `onnx-community/Llama-3.2-1B-Instruct-q4f16` (roughly 1.2 GB), which requires WebGPU. An earlier `Qwen2.5-1.5B-Instruct` option was removed: at about 1.8 GB it needed more memory than the browser allows while starting up.
 After that the model runs entirely on the visitor's device: WebGPU when it's available, WASM otherwise.
 
 ## Deploying on GitHub Pages

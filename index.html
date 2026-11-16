@@ -148,7 +148,7 @@
     .chat-col { position: sticky; top: 16px; }
   }
   .left-col { display: grid; gap: 26px; }
-  .left-col, .chat-col { min-width: 0; }
+  .left-col, .chat-col, .left-col > * { min-width: 0; }
 
   /* Setup card */
   .setup { background-color: var(--paper-yellow); transform: rotate(-.6deg); }
@@ -319,8 +319,8 @@
         </div>
         <label class="model">Model
           <select id="model-select">
-            <option value="small">Qwen2.5 0.5B · smaller · ~0.8 GB</option>
-            <option value="large">Llama 3.2 1B · bigger · ~1.2 GB (WebGPU)</option>
+            <option value="small" selected>Qwen2.5 0.5B · default · ~0.8 GB</option>
+            <option value="large">Llama 3.2 1B · optional · ~1.2 GB · requires WebGPU</option>
           </select>
         </label>
         <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
@@ -753,14 +753,15 @@ startWorker();
 
 // ---- Model picker -----------------------------------------------------------
 const modelSelect = $("model-select");
-try { if (MODELS[localStorage.getItem("finklestein-model")]) modelKey = localStorage.getItem("finklestein-model"); } catch (_) {}
+// Every visit starts on the smaller default model; the bigger one is opt-in.
+// (Earlier versions remembered the last choice; clear that.)
+try { localStorage.removeItem("finklestein-model"); } catch (_) {}
 modelSelect.value = modelKey;
 $("size-hint").textContent = MODELS[modelKey].size;
 
 modelSelect.addEventListener("change", () => {
   const wasLoaded = !input.disabled;
   modelKey = modelSelect.value;
-  try { localStorage.setItem("finklestein-model", modelKey); } catch (_) {}
   $("size-hint").textContent = MODELS[modelKey].size;
   // Fresh worker so the old model's memory is released.
   startWorker();
