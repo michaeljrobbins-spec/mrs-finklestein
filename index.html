@@ -185,6 +185,11 @@
     transition: width .2s ease;
   }
   .progress-text { font-size: 1rem; margin-top: 4px; display: none; }
+  .gpu-line { margin-top: 8px; font-size: 1.05rem; }
+  .gpu-line details { margin-top: 4px; background: var(--card); padding: 6px 12px; border-radius: 3px; }
+  .gpu-line summary { cursor: pointer; }
+  .gpu-line ol { margin: 6px 0 4px; padding-left: 22px; font: .9rem/1.45 var(--plain); }
+  .gpu-line li { margin-bottom: 4px; }
 
   /* Topic board */
   .topics { background-color: var(--paper-blue); transform: rotate(.4deg); }
@@ -321,6 +326,18 @@
         <div class="progress" id="progress" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
         <div class="progress-text" id="progress-text"></div>
         <p class="status" id="status" aria-live="polite">Model not loaded yet.</p>
+        <div class="gpu-line" id="gpu-line">
+          <span id="gpu-text">Checking your graphics card…</span>
+          <details id="gpu-help" hidden>
+            <summary>How to fix this</summary>
+            <ol>
+              <li><strong>Fully quit Chrome</strong>, then reopen it. Closing the window often isn't enough: on Windows, check the system tray for Chrome still running in the background; on a Mac, press Cmd+Q.</li>
+              <li>In Chrome's Settings → System, turn on <strong>"Use graphics acceleration when available"</strong> and click Relaunch.</li>
+              <li>Type <strong>chrome://gpu</strong> in the address bar. The <strong>WebGPU</strong> line should say "Hardware accelerated." If it says "Disabled" or "Blocklisted," updating Chrome and your graphics drivers usually fixes it.</li>
+              <li>Close other tabs that use a lot of graphics (games, 3D maps, other AI demos), then reload this page.</li>
+            </ol>
+          </details>
+        </div>
       </section>
 
       <section class="paper topics pin" aria-labelledby="topics-h">
@@ -368,9 +385,24 @@ const stopper = new InterruptableStoppingCriteria();
 // Each model says which weight file ("dtype") to use on each backend; see
 // MODELS in the page script for why.
 
-async function hasWebGPU() {
-  try { return !!(navigator.gpu && await navigator.gpu.requestAdapter()); }
-  catch (_) { return false; }
+// "unsupported": the browser has no WebGPU at all.
+// "no-adapter":  the browser has WebGPU but won't give this page a graphics
+//                card right now (GPU blocked after a crash, hardware
+//                acceleration off, driver problem...).
+// "ok":          ready. Some machines only answer one power preference, so
+//                we try all of them and tell ONNX Runtime which one worked.
+async function webgpuStatus() {
+  if (!navigator.gpu) return "unsupported";
+  for (const powerPreference of [undefined, "high-performance", "low-power"]) {
+    try {
+      const adapter = await navigator.gpu.requestAdapter(powerPreference ? { powerPreference } : undefined);
+      if (adapter) {
+        if (powerPreference) { try { env.backends.onnx.webgpu.powerPreference = powerPreference; } catch (_) {} }
+        return "ok";
+      }
+    } catch (_) {}
+  }
+  return "no-adapter";
 }
 
 // Clear signs of numeric breakdown: long runs of one character, rows of
@@ -420,11 +452,17 @@ async function load(model, persona, dtypes) {
     else if (p.status === "done" && files[p.file]) { files[p.file].loaded = files[p.file].total; report(); }
   };
   const make = (device) => pipeline("text-generation", model, { device, dtype: dtypes[device], progress_callback });
-  const gpu = await hasWebGPU();
+  const gpuState = await webgpuStatus();
+  const gpu = gpuState === "ok";
 
   // Models with no WASM option need WebGPU; say so before downloading anything.
   if (!gpu && !dtypes.wasm) {
-    throw new Error("This bigger model needs WebGPU, which this browser doesn't have. Please pick the smaller model, or try a recent Chrome or Edge.");
+    throw new Error(gpuState === "unsupported"
+      ? "This bigger model needs WebGPU, which this browser doesn't support. Please pick the smaller model, or try a recent Chrome or Edge."
+      : "Your browser supports WebGPU, but it isn't letting this page use your graphics card right now, so the bigger model can't run. See \"Graphics card\" above for how to fix it, or pick the smaller model.");
+  }
+  if (!gpu) {
+    self.postMessage({ type: "status", text: "Your graphics card isn't available right now, so using WASM (slower)…" });
   }
 
   if (gpu) {
@@ -689,6 +727,28 @@ startWorker();
       if (req.url.includes("Qwen2.5-1.5B-Instruct")) await cache.delete(req);
     }
   } catch (_) {}
+})();
+
+// ---- Graphics card status ------------------------------------------------------
+(async () => {
+  const text = $("gpu-text"), help = $("gpu-help");
+  let state = "unsupported";
+  if (navigator.gpu) {
+    state = "no-adapter";
+    for (const powerPreference of [undefined, "high-performance", "low-power"]) {
+      try {
+        if (await navigator.gpu.requestAdapter(powerPreference ? { powerPreference } : undefined)) { state = "ok"; break; }
+      } catch (_) {}
+    }
+  }
+  if (state === "ok") {
+    text.textContent = "🟢 Graphics card: ready (WebGPU). Both models can run fast here.";
+  } else if (state === "no-adapter") {
+    text.textContent = "🟠 Graphics card: your browser supports WebGPU, but isn't letting this page use your graphics card right now. The smaller model will still work, just more slowly.";
+    help.hidden = false;
+  } else {
+    text.textContent = "⚪ Graphics card: this browser doesn't support WebGPU. The smaller model will still work, just more slowly. For the bigger model, try a recent Chrome or Edge.";
+  }
 })();
 
 // ---- Model picker -----------------------------------------------------------
